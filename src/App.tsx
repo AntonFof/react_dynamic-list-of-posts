@@ -1,151 +1,126 @@
+/* eslint-disable @typescript-eslint/indent */
+import { useState, useEffect } from 'react';
+import classNames from 'classnames';
+import { client } from './utils/fetchClient';
+import { User } from './types/User';
+import { Post } from './types/Post';
+import { Comment } from './types/Comment';
+
 import 'bulma/css/bulma.css';
 import '@fortawesome/fontawesome-free/css/all.css';
 import './App.scss';
 
-import * as userService from './api/users';
-import * as postService from './api/posts';
-import * as commentService from './api/comments';
-
-import classNames from 'classnames';
 import { PostsList } from './components/PostsList';
 import { PostDetails } from './components/PostDetails';
 import { UserSelector } from './components/UserSelector';
 import { Loader } from './components/Loader';
-import { useEffect, useState } from 'react';
-import { User } from './types/User';
-import { Post } from './types/Post';
-import { Comment, CommentData } from './types/Comment';
 
 export const App = () => {
-  //users State
   const [users, setUsers] = useState<User[]>([]);
-  const [currentUser, setCurrentUser] = useState<User>();
-
-  //posts State
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [selectedPostId, setSelectedPostId] = useState<number | null>(null);
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [isLoadingPosts, setIsLoadingPosts] = useState(false);
-  const [userPosts, setUserPosts] = useState<Post[]>([]);
-  const [isLoadingPostsError, setIsLoadingPostsError] = useState(false);
-  const [isNotHasPosts, setIsNotHasPosts] = useState(false);
-  const [currentPost, setCurrentPost] = useState<Post>({
-    id: 0,
-    title: '',
-    body: '',
-    userId: 0,
-  });
-
-  //comments State
   const [isLoadingComments, setIsLoadingComments] = useState(false);
-  const [userComments, setUserComments] = useState<CommentData[]>([]);
-  const [isLoadingCommentsError, setIsLoadingCommentsError] = useState(false);
-  const [isNotHasComments, setIsNotHasComments] = useState(false);
-
-  //other State
-  const [isSideBarShown, setIsSideBarShown] = useState(false);
-  // const [isFaAngleDownLoading, setIsFaAngleDownLoading] = useState(false);
-
-  const [isCommentFormShown, setIsCommentFormShown] = useState(false);
-  const [isButtonShown, setIsButtonShown] = useState(false);
+  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+  const [postsError, setPostsError] = useState(false);
+  const [commentsError, setCommentsError] = useState(false);
+  const [showCommentForm, setShowCommentForm] = useState(false);
 
   useEffect(() => {
-    userService
-      .getUsers()
+    setIsLoadingUsers(true);
+    client
+      .get<User[]>('/users')
       .then(setUsers)
-      .catch(() => {})
-      .finally(() => {});
+      .finally(() => setIsLoadingUsers(false));
   }, []);
 
-  // useEffect(() => {
-  //   if (!currentUser?.id) {
-  //     setUserPosts([]);
-  //     setCurrentPost({ id: 0, title: '', body: '', userId: 0 });
+  useEffect(() => {
+    if (!selectedUserId) {
+      setPosts([]);
+      setSelectedPostId(null);
 
-  //     return;
-  //   }
+      return;
+    }
 
-  //   setIsLoadingPosts(true);
-  //   setUserPosts([]);
-  //   setIsNotHasPosts(false);
-  //   setIsLoadingPostsError(false);
-
-  //   postService
-  //     .getPosts(currentUser?.id)
-  //     .then(resp => {
-  //       setUserPosts(resp);
-  //       if (resp.length === 0) {
-  //         setIsNotHasPosts(true);
-  //       }
-  //     })
-  //     .catch(() => {
-  //       setIsLoadingPostsError(true);
-  //     })
-  //     .finally(() => {
-  //       setIsLoadingPosts(false);
-  //     });
-  // }, [currentUser]);
-
-  function getPostsByUserId(userId: number) {
     setIsLoadingPosts(true);
-    setUserPosts([]);
-    setIsNotHasPosts(false);
-    setIsLoadingPostsError(false);
+    setPostsError(false);
+    setPosts([]);
+    setSelectedPostId(null);
 
-    postService
-      .getPosts(userId)
-      .then(resp => {
-        setUserPosts(resp);
-        if (resp.length === 0) {
-          setIsNotHasPosts(true);
-        }
-      })
-      .catch(() => {
-        setIsLoadingPostsError(true);
-      })
-      .finally(() => {
-        setIsLoadingPosts(false);
-      });
-  }
+    client
+      .get<Post[]>(`/posts?userId=${selectedUserId}`)
+      .then(setPosts)
+      .catch(() => setPostsError(true))
+      .finally(() => setIsLoadingPosts(false));
+  }, [selectedUserId]);
 
-  function getCommentsByPostId(postId: number) {
+  useEffect(() => {
+    if (!selectedPostId) {
+      setComments([]);
+      setShowCommentForm(false);
+
+      return;
+    }
+
     setIsLoadingComments(true);
-    setUserComments([]);
-    setIsNotHasComments(false);
-    setIsLoadingCommentsError(false);
-    setIsButtonShown(false);
+    setCommentsError(false);
+    setShowCommentForm(false);
 
-    commentService
-      .getComments(postId)
-      .then(resp => {
-        setUserComments(resp);
-        setIsButtonShown(true);
-        if (resp.length === 0) {
-          setIsNotHasComments(true);
-        }
-      })
-      .catch(() => {
-        setIsLoadingCommentsError(true);
-      })
-      .finally(() => {
-        setIsLoadingComments(false);
-      });
-  }
+    client
+      .get<Comment[]>(`/comments?postId=${selectedPostId}`)
+      .then(setComments)
+      .catch(() => setCommentsError(true))
+      .finally(() => setIsLoadingComments(false));
+  }, [selectedPostId]);
 
-  async function deleteComment(commentId: number) {
-    await commentService.deleteComment(commentId).then(() => {
-      setUserComments(currentComments =>
-        currentComments?.filter(comment => comment.id !== commentId),
+  const handleUserSelect = (userId: number) => {
+    setSelectedUserId(userId);
+    setSelectedPostId(null);
+    setShowCommentForm(false);
+  };
+
+  const handleAddComment = async (
+    commentData: Omit<Comment, 'id' | 'postId'>,
+  ) => {
+    if (!selectedPostId) {
+      return;
+    }
+
+    setIsSubmittingComment(true);
+    const newComment = {
+      ...commentData,
+      postId: selectedPostId,
+    };
+
+    // setComments(current => [...current, newComment]);
+
+    try {
+      await new Promise(resolve => setTimeout(resolve, 300));
+      const commentFromServer = await client.post<Comment>(
+        '/comments',
+        newComment,
       );
-    });
-  }
 
-  function createComment({ postId, name, email, body }: Comment) {
-    return commentService
-      .createComment({ postId, name, email, body })
-      .then(newComment => {
-        setUserComments(currentComments => [...currentComments, newComment]);
-      })
-      .catch(() => {})
-      .finally(() => {});
-  }
+      setComments(current => [...current, commentFromServer]);
+    } catch {
+    } finally {
+      setIsSubmittingComment(false);
+    }
+  };
+
+  const handleDeleteComment = (commentId: number) => {
+    setComments(current => current.filter(c => c.id !== commentId));
+    client.delete(`/comments/${commentId}`).catch(() => {
+      client
+        .get<Comment[]>(`/comments?postId=${selectedPostId}`)
+        .then(setComments);
+    });
+  };
+
+  const selectedPost = posts.find(post => post.id === selectedPostId);
 
   return (
     <main className="section">
@@ -156,32 +131,18 @@ export const App = () => {
               <div className="block">
                 <UserSelector
                   users={users}
-                  currentUser={currentUser}
-                  setCurrentUser={setCurrentUser}
-                  getPostsByUserId={getPostsByUserId}
-                  setIsSideBarShown={setIsSideBarShown}
+                  selectedUserId={selectedUserId}
+                  onSelect={handleUserSelect}
+                  isLoading={isLoadingUsers}
                 />
               </div>
 
               <div className="block" data-cy="MainContent">
-                {!currentUser && (
+                {!selectedUserId && (
                   <p data-cy="NoSelectedUser">No user selected</p>
                 )}
-
                 {isLoadingPosts && <Loader />}
-
-                {userPosts && userPosts?.length > 0 && (
-                  <PostsList
-                    userPosts={userPosts}
-                    setIsSideBarShown={setIsSideBarShown}
-                    currentPost={currentPost}
-                    setCurrentPost={setCurrentPost}
-                    getCommentsByPostId={getCommentsByPostId}
-                    setIsCommentFormShown={setIsCommentFormShown}
-                  />
-                )}
-
-                {isLoadingPostsError && (
+                {postsError && (
                   <div
                     className="notification is-danger"
                     data-cy="PostsLoadingError"
@@ -189,44 +150,56 @@ export const App = () => {
                     Something went wrong!
                   </div>
                 )}
-
-                {isNotHasPosts && (
-                  <div className="notification is-warning" data-cy="NoPostsYet">
-                    No posts yet
-                  </div>
+                {selectedUserId &&
+                  !isLoadingPosts &&
+                  !posts.length &&
+                  !postsError && (
+                    <div
+                      className="notification is-warning"
+                      data-cy="NoPostsYet"
+                    >
+                      No posts yet
+                    </div>
+                  )}
+                {selectedUserId && posts.length > 0 && (
+                  <PostsList
+                    posts={posts}
+                    selectedPostId={selectedPostId}
+                    onSelect={setSelectedPostId}
+                  />
                 )}
               </div>
             </div>
           </div>
 
-          {isSideBarShown && (
-            <div
-              data-cy="Sidebar"
-              className={classNames(
-                'tile',
-                'is-parent',
-                'is-8-desktop',
-                'Sidebar',
-                'Sidebar--open',
-              )}
-            >
-              <div className="tile is-child box is-success ">
+          <div
+            data-cy="Sidebar"
+            className={classNames(
+              'tile',
+              'is-parent',
+              'is-8-desktop',
+              'Sidebar',
+              { 'Sidebar--open': selectedPostId !== null },
+            )}
+          >
+            <div className="tile is-child box is-success">
+              {selectedPost && (
                 <PostDetails
-                  currentPost={currentPost}
+                  post={selectedPost}
+                  comments={comments}
                   isLoadingComments={isLoadingComments}
-                  userComments={userComments}
-                  isLoadingCommentsError={isLoadingCommentsError}
-                  isNotHasComments={isNotHasComments}
-                  isCommentFormShown={isCommentFormShown}
-                  setIsCommentFormShown={setIsCommentFormShown}
-                  isButtonShown={isButtonShown}
-                  setIsButtonShown={setIsButtonShown}
-                  deleteComment={deleteComment}
-                  createComment={createComment}
+                  commentsError={commentsError}
+                  showCommentForm={showCommentForm}
+                  onToggleCommentForm={() =>
+                    setShowCommentForm(!showCommentForm)
+                  }
+                  onAddComment={handleAddComment}
+                  onDeleteComment={handleDeleteComment}
+                  isSubmittingComment={isSubmittingComment}
                 />
-              </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
       </div>
     </main>

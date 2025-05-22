@@ -1,29 +1,44 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { User } from '../types/User';
 
-type Props = {
+interface Props {
   users: User[];
-  currentUser: User | undefined;
-  setCurrentUser: (user: User) => void;
-  getPostsByUserId: (userId: number) => void;
-  setIsSideBarShown: (isSideBarShown: boolean) => void;
-  // isFaAngleDownLoading: boolean;
-};
+  selectedUserId: number | null;
+  onSelect: (userId: number) => void;
+  isLoading: boolean;
+}
 
 export const UserSelector: React.FC<Props> = ({
   users,
-  currentUser,
-  setCurrentUser,
-  getPostsByUserId,
-  setIsSideBarShown,
-  // isFaAngleDownLoading,
+  selectedUserId,
+  onSelect,
+  isLoading,
 }) => {
-  const [isShowDropDown, setIsShowDropDown] = useState(false);
+  const [isActive, setIsActive] = React.useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsActive(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   return (
     <div
+      ref={dropdownRef}
       data-cy="UserSelector"
-      className={`dropdown ${isShowDropDown ? 'is-active' : ''}`}
+      className={`dropdown ${isActive ? 'is-active' : ''}`}
     >
       <div className="dropdown-trigger">
         <button
@@ -31,15 +46,17 @@ export const UserSelector: React.FC<Props> = ({
           className="button"
           aria-haspopup="true"
           aria-controls="dropdown-menu"
-          onClick={() => {
-            setIsShowDropDown(!isShowDropDown);
-          }}
+          onClick={() => setIsActive(!isActive)}
+          disabled={isLoading}
         >
-          <span>{currentUser ? currentUser.name : 'Choose a user'}</span>
+          <span>
+            {selectedUserId
+              ? users.find(u => u.id === selectedUserId)?.name
+              : 'Choose a user'}
+          </span>
 
-          {/* add condition loading on this button ? */}
           <span className="icon is-small">
-            <i className="fas fa-angle-down" aria-hidden="false" />
+            <i className="fas fa-angle-down" aria-hidden="true" />
           </span>
         </button>
       </div>
@@ -50,12 +67,11 @@ export const UserSelector: React.FC<Props> = ({
             <a
               key={user.id}
               href={`#user-${user.id}`}
-              className={`dropdown-item ${currentUser?.id === user.id ? 'is-active' : ''}`}
-              onClick={() => {
-                setCurrentUser(user);
-                setIsShowDropDown(!isShowDropDown);
-                getPostsByUserId(user.id);
-                setIsSideBarShown(false);
+              className={`dropdown-item ${selectedUserId === user.id ? 'is-active' : ''}`}
+              onClick={e => {
+                e.preventDefault();
+                onSelect(user.id);
+                setIsActive(false);
               }}
             >
               {user.name}

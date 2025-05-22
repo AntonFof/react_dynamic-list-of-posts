@@ -1,119 +1,104 @@
-// import React, { useState } from 'react';
+import React from 'react';
+import { Post } from '../types/Post';
+import { Comment } from '../types/Comment';
 import { Loader } from './Loader';
 import { NewCommentForm } from './NewCommentForm';
-import { Post } from '../types/Post';
-import { Comment, CommentData } from '../types/Comment';
 
-type Props = {
-  currentPost: Post;
+interface Props {
+  post: Post;
+  comments: Comment[];
   isLoadingComments: boolean;
-  userComments: CommentData[] | undefined;
-  isLoadingCommentsError: boolean;
-  isNotHasComments: boolean;
-  isButtonShown: boolean;
-  isCommentFormShown: boolean;
-  setIsCommentFormShown: (formShown: boolean) => void;
-  setIsButtonShown: (buttonShown: boolean) => void;
-  deleteComment: (commentId: number) => void;
-  createComment: (comment: Comment) => Promise<void>;
-};
+  commentsError: boolean;
+  showCommentForm: boolean;
+  onToggleCommentForm: () => void;
+  onAddComment: (comment: Omit<Comment, 'id' | 'postId'>) => void;
+  onDeleteComment: (commentId: number) => void;
+  isSubmittingComment: boolean;
+}
 
 export const PostDetails: React.FC<Props> = ({
-  currentPost,
+  post,
+  comments,
   isLoadingComments,
-  userComments,
-  isLoadingCommentsError,
-  isNotHasComments,
-  isButtonShown,
-  isCommentFormShown,
-  setIsCommentFormShown,
-  setIsButtonShown,
-  deleteComment,
-  createComment,
+  commentsError,
+  showCommentForm,
+  onToggleCommentForm,
+  onAddComment,
+  onDeleteComment,
+  isSubmittingComment,
 }) => {
   return (
     <div className="content" data-cy="PostDetails">
-      <div className="content" data-cy="PostDetails">
-        <div className="block">
-          <h2 data-cy="PostTitle">
-            {`#${currentPost?.id}: ${currentPost?.title}`}
-          </h2>
+      <div className="block">
+        <h2 data-cy="PostTitle">
+          #{post.id}: {post.title}
+        </h2>
+        <p data-cy="PostBody">{post.body}</p>
+      </div>
 
-          <p data-cy="PostBody">{currentPost?.body}</p>
-        </div>
+      <div className="block">
+        {isLoadingComments && <Loader />}
 
-        <div className="block">
-          {isLoadingComments && <Loader />}
+        {commentsError && (
+          <div className="notification is-danger" data-cy="CommentsError">
+            Something went wrong
+          </div>
+        )}
 
-          {isLoadingCommentsError && (
-            <div className="notification is-danger" data-cy="CommentsError">
-              Something went wrong
-            </div>
-          )}
+        {!isLoadingComments && !commentsError && comments.length === 0 && (
+          <p className="title is-4" data-cy="NoCommentsMessage">
+            No comments yet
+          </p>
+        )}
 
-          {isNotHasComments && (
-            <p className="title is-4" data-cy="NoCommentsMessage">
-              No comments yet
-            </p>
-          )}
+        {!isLoadingComments && comments.length > 0 && (
+          <>
+            <p className="title is-4">Comments:</p>
+            {comments.map(comment => (
+              <article
+                key={comment.id}
+                className="message is-small"
+                data-cy="Comment"
+              >
+                <div className="message-header">
+                  <a href={`mailto:${comment.email}`} data-cy="CommentAuthor">
+                    {comment.name}
+                  </a>
+                  <button
+                    data-cy="CommentDelete"
+                    type="button"
+                    className="delete is-small"
+                    aria-label="delete"
+                    onClick={() => onDeleteComment(comment.id)}
+                  />
+                </div>
+                <div className="message-body" data-cy="CommentBody">
+                  {comment.body}
+                </div>
+              </article>
+            ))}
+          </>
+        )}
 
-          {userComments && userComments.length > 0 && (
-            <>
-              <p className="title is-4">Comments:</p>
-
-              {userComments.map(comment => (
-                <article
-                  key={comment.id}
-                  className="message is-small"
-                  data-cy="Comment"
-                >
-                  <div className="message-header">
-                    <a href={`mailto:${comment.email}`} data-cy="CommentAuthor">
-                      {comment.name}
-                    </a>
-
-                    <button
-                      data-cy="CommentDelete"
-                      type="button"
-                      className="delete is-small"
-                      aria-label="delete"
-                      onClick={() => {
-                        deleteComment(comment.id);
-                      }}
-                    >
-                      delete button
-                    </button>
-                  </div>
-                  <div className="message-body" data-cy="CommentBody">
-                    {comment.body}
-                  </div>
-                </article>
-              ))}
-            </>
-          )}
-
-          {isButtonShown && (
-            <button
-              data-cy="WriteCommentButton"
-              type="button"
-              className="button is-link"
-              onClick={() => {
-                setIsCommentFormShown(true);
-                setIsButtonShown(false);
-              }}
-            >
-              Write a comment
-            </button>
-          )}
-        </div>
-
-        {isCommentFormShown && (
-          <NewCommentForm
-            createComment={createComment}
-            currentPost={currentPost}
-          />
+        {!isLoadingComments && !commentsError && !showCommentForm && (
+          <button
+            data-cy="WriteCommentButton"
+            type="button"
+            className="button is-link"
+            onClick={onToggleCommentForm}
+          >
+            Write a comment
+          </button>
         )}
       </div>
+
+      {showCommentForm && (
+        <NewCommentForm
+          onSubmit={onAddComment}
+          onCancel={onToggleCommentForm}
+          isSubmitting={isSubmittingComment}
+        />
+      )}
     </div>
   );
 };

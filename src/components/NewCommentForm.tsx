@@ -1,88 +1,87 @@
 import React, { useState } from 'react';
-import { Post } from '../types/Post';
-import { Comment } from '../types/Comment';
+import { CommentData } from '../types/Comment';
 
-type Props = {
-  currentPost: Post;
-  createComment: (comment: Comment) => Promise<void>;
-};
+interface Props {
+  onSubmit: (comment: CommentData) => Promise<void>;
+  onCancel: () => void;
+  isSubmitting?: boolean;
+}
 
 export const NewCommentForm: React.FC<Props> = ({
-  currentPost,
-  createComment,
+  onSubmit,
+  onCancel,
+  isSubmitting,
 }) => {
-  const [queryName, setQueryName] = useState('');
-  const [queryEmail, setQueryEmail] = useState('');
-  const [queryText, setQueryText] = useState('');
+  const [formData, setFormData] = useState<CommentData>({
+    name: '',
+    email: '',
+    body: '',
+  });
+  const [errors, setErrors] = useState<Partial<CommentData>>({});
 
-  const [queryNameError, setQueryNameError] = useState(false);
-  const [queryEmailError, setQueryEmailError] = useState(false);
-  const [queryTextError, setQueryTextError] = useState(false);
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => {
+    const { name, value } = e.target;
 
-  const [isSubmitLoading, setIsSubmitLoading] = useState(false);
+    setFormData(prev => ({ ...prev, [name]: value }));
 
-  const reset = () => {
-    setQueryName('');
-    setQueryEmail('');
-    setQueryText('');
-    setQueryNameError(false);
-    setQueryEmailError(false);
-    setQueryTextError(false);
+    if (errors[name as keyof CommentData]) {
+      setErrors(prev => ({ ...prev, [name]: '' }));
+    }
   };
 
-  const handleQueryName = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setQueryNameError(false);
-    const tempQueryName = event.target.value.trim();
+  const validate = (): boolean => {
+    const newErrors: Partial<CommentData> = {};
 
-    setQueryName(tempQueryName);
+    if (!formData.name.trim()) {
+      newErrors.name = 'Name is required';
+    }
+
+    if (!formData.email.trim()) {
+      newErrors.email = 'Email is required';
+    } else if (!formData.email.includes('@')) {
+      newErrors.email = 'Email is invalid';
+    }
+
+    if (!formData.body.trim()) {
+      newErrors.body = 'Enter some text';
+    }
+
+    setErrors(newErrors);
+
+    return Object.keys(newErrors).length === 0;
   };
 
-  const handleQueryEmail = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setQueryEmailError(false);
-    const tempQueryEmail = event.target.value.trim();
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
 
-    setQueryEmail(tempQueryEmail);
-  };
-
-  const handleQueryText = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setQueryTextError(false);
-    const tempQueryText = event.target.value.trim();
-
-    setQueryText(tempQueryText);
-  };
-
-  const hanldeSubmit = (event: React.FormEvent) => {
-    event.preventDefault();
-    setIsSubmitLoading(true);
-
-    setQueryNameError(!queryName);
-    setQueryEmailError(!queryEmail);
-    setQueryTextError(!queryText);
-
-    if (!queryName || !queryEmail || !queryText) {
-      setIsSubmitLoading(false);
-
+    if (!validate()) {
       return;
     }
 
-    createComment({
-      id: 0,
-      postId: currentPost.id,
-      name: queryName,
-      email: queryEmail,
-      body: queryText,
-    })
-      .then(() => {
-        reset();
-      })
-      .catch(() => {})
-      .finally(() => {
-        setIsSubmitLoading(false);
-      });
+    try {
+      await onSubmit(formData);
+      setFormData(prev => ({ ...prev, body: '' }));
+    } catch (error) {}
+  };
+
+  const handleReset = (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormData({
+      name: '',
+      email: '',
+      body: '',
+    });
+    setErrors({});
   };
 
   return (
-    <form data-cy="NewCommentForm" onSubmit={hanldeSubmit}>
+    <form
+      data-cy="NewCommentForm"
+      onSubmit={handleSubmit}
+      onReset={handleReset}
+    >
       <div className="field" data-cy="NameField">
         <label className="label" htmlFor="comment-author-name">
           Author Name
@@ -94,16 +93,16 @@ export const NewCommentForm: React.FC<Props> = ({
             name="name"
             id="comment-author-name"
             placeholder="Name Surname"
-            className={`input ${queryNameError ? 'is-danger' : ''}`}
-            value={queryName}
-            onChange={handleQueryName}
+            className={`input ${errors.name ? 'is-danger' : ''}`}
+            value={formData.name}
+            onChange={handleChange}
           />
 
           <span className="icon is-small is-left">
             <i className="fas fa-user" />
           </span>
 
-          {queryNameError && (
+          {errors.name && (
             <span
               className="icon is-small is-right has-text-danger"
               data-cy="ErrorIcon"
@@ -113,9 +112,9 @@ export const NewCommentForm: React.FC<Props> = ({
           )}
         </div>
 
-        {queryNameError && (
+        {errors.name && (
           <p className="help is-danger" data-cy="ErrorMessage">
-            Name is required
+            {errors.name}
           </p>
         )}
       </div>
@@ -131,16 +130,16 @@ export const NewCommentForm: React.FC<Props> = ({
             name="email"
             id="comment-author-email"
             placeholder="email@test.com"
-            className={`input ${queryEmailError ? 'is-danger' : ''}`}
-            onChange={handleQueryEmail}
-            value={queryEmail}
+            className={`input ${errors.email ? 'is-danger' : ''}`}
+            value={formData.email}
+            onChange={handleChange}
           />
 
           <span className="icon is-small is-left">
             <i className="fas fa-envelope" />
           </span>
 
-          {queryEmailError && (
+          {errors.email && (
             <span
               className="icon is-small is-right has-text-danger"
               data-cy="ErrorIcon"
@@ -150,9 +149,9 @@ export const NewCommentForm: React.FC<Props> = ({
           )}
         </div>
 
-        {queryEmailError && (
+        {errors.email && (
           <p className="help is-danger" data-cy="ErrorMessage">
-            Email is required
+            {errors.email}
           </p>
         )}
       </div>
@@ -167,15 +166,15 @@ export const NewCommentForm: React.FC<Props> = ({
             id="comment-body"
             name="body"
             placeholder="Type comment here"
-            className={`textarea ${queryTextError ? 'is-danger' : ''}`}
-            onChange={handleQueryText}
-            value={queryText}
+            className={`textarea ${errors.body ? 'is-danger' : ''}`}
+            value={formData.body}
+            onChange={handleChange}
           />
         </div>
 
-        {queryTextError && (
+        {errors.body && (
           <p className="help is-danger" data-cy="ErrorMessage">
-            Enter some text
+            {errors.body}
           </p>
         )}
       </div>
@@ -184,20 +183,30 @@ export const NewCommentForm: React.FC<Props> = ({
         <div className="control">
           <button
             type="submit"
-            className={`button is-link ${isSubmitLoading ? 'is-loading' : ''}`}
+            className={`button is-link ${isSubmitting ? 'is-loading' : ''}`}
+            disabled={isSubmitting}
+            data-cy="SubmitButton"
           >
             Add
           </button>
         </div>
-
         <div className="control">
-          {/* eslint-disable-next-line react/button-has-type */}
           <button
             type="reset"
             className="button is-link is-light"
-            onClick={reset}
+            data-cy="ClearButton"
           >
             Clear
+          </button>
+        </div>
+        <div className="control">
+          <button
+            type="button"
+            className="button is-link is-light"
+            onClick={onCancel}
+            data-cy="CancelButton"
+          >
+            Cancel
           </button>
         </div>
       </div>

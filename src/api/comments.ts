@@ -14,6 +14,6 @@ export const createComment = ({
   name,
   email,
   body,
-}: Omit<Comment, 'id'>) => {
+}: Omit<Comment, 'id' | 'postId'> & { postId: number }) => {
   return client.post<Comment>(`/comments`, { postId, name, email, body });
 };
